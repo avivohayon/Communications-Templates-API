@@ -25,6 +25,21 @@ class MessageSendResult:
     error: str | None = None
 
 
+@dataclass
+class BatchMessageSendResult:
+    """
+    Result of a batch message send operation.
+    
+    Attributes:
+        successful_recipients: List of recipients that received the message successfully
+        failed_recipients: Dictionary mapping failed recipients to their error messages
+        external_ids: Dictionary mapping recipients to their external message IDs
+    """
+    successful_recipients: list[str]
+    failed_recipients: dict[str, str]  # recipient -> error
+    external_ids: dict[str, str]  # recipient -> external_id
+
+
 class MessageChannel(ABC):
     """
     Abstract base class for message channels.

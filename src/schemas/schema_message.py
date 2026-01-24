@@ -1,6 +1,7 @@
+import re
 from uuid import UUID
 from typing import Dict, Any, List
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 from src.models.enums import ChannelType
 
@@ -12,6 +13,7 @@ class SendMessageRequest(BaseModel):
     Validation:
     - At least one of template_id or template_name must be provided
     - If both provided, template_id takes priority
+    - Recipients must be valid email addresses OR phone numbers
     """
     template_id: UUID | None = Field(
         None,
@@ -32,6 +34,52 @@ class SendMessageRequest(BaseModel):
         description="List of recipient email addresses or phone numbers",
         examples=[["user@example.com"], ["+15005550006"]]
     )
+    
+    @field_validator('to')
+    @classmethod
+    def validate_recipients(cls, recipients: List[str]) -> List[str]:
+        """
+        Validate that each recipient is either a valid email or phone number.
+        
+        Email format: standard email validation
+        Phone format: E.164 format (+[country code][number], 7-15 digits)
+        
+        Raises:
+            ValueError: If any recipient is invalid
+        """
+        # Email regex (basic but covers most cases)
+        email_pattern = re.compile(
+            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        )
+        
+        # Phone regex (E.164 format: +[1-9][0-9]{6,14})
+        # Examples: +15005550006, +972501234567, +441234567890
+        phone_pattern = re.compile(
+            r'^\+[1-9]\d{6,14}$'
+        )
+        
+        invalid_recipients = []
+        
+        for recipient in recipients:
+            recipient = recipient.strip()
+            
+            # Check if valid email
+            is_valid_email = email_pattern.match(recipient)
+            
+            # Check if valid phone (E.164 format)
+            is_valid_phone = phone_pattern.match(recipient)
+            
+            if not is_valid_email and not is_valid_phone:
+                invalid_recipients.append(recipient)
+        
+        if invalid_recipients:
+            raise ValueError(
+                f"Invalid recipient(s): {', '.join(invalid_recipients)}. "
+                f"Recipients must be valid email addresses (e.g., user@example.com) "
+                f"or phone numbers in E.164 format (e.g., +15005550006)"
+            )
+        
+        return recipients
     
     @model_validator(mode='after')
     def check_template_identifier(self):
