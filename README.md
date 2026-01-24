@@ -277,16 +277,16 @@ flowchart TD
     style ReturnRenderError fill:#ffcdd2
 ```
 
-**Key Flow Steps:**
+**Key Flow Steps (Batch Optimized):**
 
 1. **Request Validation** - FastAPI validates request schema
 2. **Template Fetching** - MessageLogic retrieves template
-3. **Template Rendering** - Render ONCE for all recipients
+3. **Template Rendering** - ⚡ **Render ONCE for all recipients** (performance optimization)
 4. **Variable Validation** - StrictUndefined ensures variables present
 5. **Channel Selection** - ChannelFactory selects SendGrid or Twilio
-6. **Batch Sending** - Single API call or concurrent sends
-7. **History Preparation** - Build records for all recipients
-8. **Bulk Database Insert** - Single transaction for all records
+6. **Batch Sending** - ⚡ **Single API call (SendGrid) or concurrent sends (Twilio)** for all recipients
+7. **History Preparation** - Build records for all recipients (successful + failed)
+8. **Bulk Database Insert** - ⚡ **Single transaction bulk insert** for all records
 9. **Response Building** - Aggregate per-recipient status
 
 ### Template Management Flow
@@ -383,6 +383,52 @@ curl http://localhost:8002/health
 # Expected response:
 # {"status": "healthy", "database": "connected"}
 ```
+
+---
+
+## 🎨 Frontend UI
+
+A React-based web interface is available for managing templates and sending messages.
+
+### Features
+
+✅ **Template Management**
+- Create email and SMS templates
+- Preview templates with sample data
+- View and manage existing templates
+
+✅ **Message Sending**
+- Send messages to multiple recipients
+- Use templates with dynamic data
+- View per-recipient send status
+
+⚠️ **Note**: Message history view is not yet implemented in the UI.
+
+### Quick Start - Frontend
+
+1. **Navigate to frontend directory**
+   ```bash
+   cd frontend
+   ```
+
+2. **Install dependencies** (first time only)
+   ```bash
+   npm install
+   ```
+
+3. **Start the development server**
+   ```bash
+   npm start
+   ```
+
+4. **Access the UI**
+   - The application will automatically open at `http://localhost:3000`
+   - Make sure the backend server is running on `http://localhost:8000` (or your configured port)
+
+### Frontend Documentation
+
+For detailed frontend instructions, features, and troubleshooting, please refer to:
+**[`frontend/QUICK_START.md`](frontend/QUICK_START.md)**
 
 ---
 
@@ -516,7 +562,20 @@ DELETE /templates/{template_id}
 
 ### Message Sending
 
-#### Send Messages (Batch Optimized)
+#### Send Messages (Batch Optimized) ⚡
+
+**🚀 Batch Performance Optimization:**
+
+The message sending endpoint is **highly optimized for batch operations** to ensure maximum performance when sending to multiple recipients:
+
+- **Single Template Rendering**: Template is rendered **ONCE** for all recipients (not per-recipient)
+- **Batch API Calls**: 
+  - **SendGrid (Email)**: Single API call with personalizations array for all recipients
+  - **Twilio (SMS)**: Concurrent API calls using `asyncio.gather()` for parallel processing
+- **Bulk Database Inserts**: All message history records are inserted in a single bulk operation
+- **Performance Gain**: **10-30x faster** than sending messages one-by-one
+
+This optimization is especially beneficial when sending the same content to hundreds or thousands of recipients.
 
 ```bash
 POST /messages/send
@@ -569,8 +628,6 @@ POST /messages/send
   "failed_count": 1
 }
 ```
-
-**Performance:** Batch sending is **10-30x faster** than one-by-one sending!
 
 **Error Handling:**
 - Missing template variables: Returns 400 with clear error message
