@@ -5,6 +5,7 @@ import TemplateList from './components/TemplateList';
 import TemplateForm from './components/TemplateForm';
 import TemplatePreview from './components/TemplatePreview';
 import MessageHistory from './components/MessageHistory';
+import MessageSend from './components/MessageSend';
 import { templateApi } from './services/api';
 
 function App() {
@@ -140,6 +141,16 @@ function App() {
               Templates
             </button>
             <button
+              onClick={() => setActiveTab('send')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'send'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Send Message
+            </button>
+            <button
               onClick={() => setActiveTab('preview')}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'preview'
@@ -173,6 +184,10 @@ function App() {
             onViewHistory={handleViewHistory}
             onRefresh={loadTemplates}
           />
+        )}
+
+        {activeTab === 'send' && (
+          <MessageSend templates={templates} />
         )}
 
         {activeTab === 'preview' && (

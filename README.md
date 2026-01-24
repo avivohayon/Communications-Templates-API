@@ -187,58 +187,49 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant Client as API Client
-    participant API as Message Router
-    participant Logic as MessageLogic
-    participant TemplateLogic as TemplateLogic
-    participant Renderer as TemplateRenderer
-    participant Channel as Channel SendGrid/Twilio
-    participant History as MessageHistoryDA
-    participant DB as PostgreSQL
+    participant Client
+    participant API
+    participant Logic
+    participant TemplateLogic
+    participant Renderer
+    participant Channel
+    participant History
+    participant DB
     
-    Client->>API: POST /messages/send with template_id, data, recipients
-    API->>Logic: send_messages(request)
+    Client->>API: POST /messages/send
+    API->>Logic: send_messages
     
-    Note over Logic: Step 1: Fetch Template
-    Logic->>TemplateLogic: get_by_id(template_id)
-    TemplateLogic->>DB: Query template with CTI join
-    DB-->>TemplateLogic: Template + EmailTemplate/SMSTemplate
-    TemplateLogic-->>Logic: TemplateOut schema
+    Note over Logic: Step 1 Fetch Template
+    Logic->>TemplateLogic: get_by_id
+    TemplateLogic->>DB: Query template
+    DB-->>TemplateLogic: Template data
+    TemplateLogic-->>Logic: TemplateOut
     
-    Note over Logic: Step 2: Render ONCE Optimization
-    Logic->>Renderer: render(content, data)
+    Note over Logic: Step 2 Render ONCE
+    Logic->>Renderer: render
     Renderer-->>Logic: rendered_content
-    Logic->>Renderer: render(subject, data) if email
-    Renderer-->>Logic: rendered_subject
     
-    Note over Logic: Step 3: Batch Send
-    Logic->>Channel: send_batch(recipients, content, subject)
+    Note over Logic: Step 3 Batch Send
+    Logic->>Channel: send_batch
     
-    alt SendGrid Email
-        Channel->>Channel: Build personalizations array
-        Channel->>SendGrid: Single API call batch
-        SendGrid-->>Channel: BatchMessageSendResult
-    else Twilio SMS
-        Channel->>Channel: Create concurrent tasks
-        Channel->>Twilio: Concurrent API calls asyncio.gather
-        Twilio-->>Channel: Per-recipient results
+    alt Email
+        Channel->>Channel: Build batch
+        Channel->>Channel: API call
+    else SMS
+        Channel->>Channel: Concurrent tasks
         Channel->>Channel: Aggregate results
-        Channel-->>Channel: BatchMessageSendResult
     end
     
-    Channel-->>Logic: BatchMessageSendResult with successful, failed, external_ids
+    Channel-->>Logic: BatchMessageSendResult
     
-    Note over Logic: Step 4: Bulk Insert History
-    Logic->>Logic: Build history records for all recipients
-    Logic->>History: bulk_insert_with_channel_data(records)
-    History->>DB: Bulk insert base and specific tables
+    Note over Logic: Step 4 Record History
+    Logic->>History: bulk_insert
+    History->>DB: Insert records
     DB-->>History: Success
-    History-->>Logic: Complete
     
-    Logic->>DB: commit()
-    Logic->>Logic: Build response with per-recipient status
+    Logic->>DB: commit
     Logic-->>API: SendMessageResponse
-    API-->>Client: 200 OK with results
+    API-->>Client: 200 OK
 ```
 
 ### Message Sending Flow - Complete Process
@@ -247,49 +238,34 @@ This detailed flowchart shows the complete end-to-end flow when a client sends a
 
 ```mermaid
 flowchart TD
-    Start[Client sends POST /messages/send] --> ValidateRequest{Validate Request Schema}
-    ValidateRequest -->|Invalid| Return400[Return 400 Bad Request]
-    ValidateRequest -->|Valid| FetchTemplate[MessageLogic: Fetch Template by ID or Name]
+    Start[Client POST /messages/send] --> ValidateRequest{Validate Schema}
+    ValidateRequest -->|Invalid| Return400[400 Bad Request]
+    ValidateRequest -->|Valid| FetchTemplate[Fetch Template]
     
-    FetchTemplate --> TemplateFound{Template Found?}
-    TemplateFound -->|No| Return404[Return 404 Not Found]
-    TemplateFound -->|Yes| CheckDeleted{Status = deleted?}
-    CheckDeleted -->|Yes| ReturnError[Return 400 Cannot use deleted template]
-    CheckDeleted -->|No| RenderTemplate[TemplateRenderer: Render Template ONCE for all recipients]
+    FetchTemplate --> TemplateFound{Found?}
+    TemplateFound -->|No| Return404[404 Not Found]
+    TemplateFound -->|Yes| CheckDeleted{Deleted?}
+    CheckDeleted -->|Yes| ReturnError[400 Deleted Template]
+    CheckDeleted -->|No| RenderTemplate[Render Template ONCE]
     
-    RenderTemplate --> ValidateVariables{All Variables Present?}
-    ValidateVariables -->|No| ReturnRenderError[Return 400 Missing Variables Error]
-    ValidateVariables -->|Yes| GetChannel[ChannelFactory: Get Channel by Type]
+    RenderTemplate --> ValidateVariables{Variables OK?}
+    ValidateVariables -->|No| ReturnRenderError[400 Missing Variables]
+    ValidateVariables -->|Yes| GetChannel[Get Channel]
     
-    GetChannel --> ChannelType{Channel Type?}
-    ChannelType -->|Email| SendGridBatch[SendGridChannel: send_batch]
-    ChannelType -->|SMS| TwilioConcurrent[TwilioChannel: send_batch concurrent]
+    GetChannel --> ChannelType{Type?}
+    ChannelType -->|Email| SendGridBatch[SendGrid Batch]
+    ChannelType -->|SMS| TwilioConcurrent[Twilio Concurrent]
     
-    SendGridBatch --> BuildPersonalizations[Build personalizations array for all recipients]
-    BuildPersonalizations --> SingleAPICall[Single SendGrid API call with batch]
-    SingleAPICall --> SendGridResult[BatchMessageSendResult with all recipients]
+    SendGridBatch --> SendGridResult[Batch Result]
+    TwilioConcurrent --> TwilioResult[Batch Result]
     
-    TwilioConcurrent --> CreateTasks[Create async tasks for each recipient]
-    CreateTasks --> ConcurrentAPICalls[Concurrent Twilio API calls using asyncio.gather]
-    ConcurrentAPICalls --> AggregateResults[Aggregate per-recipient results]
-    AggregateResults --> TwilioResult[BatchMessageSendResult with successful/failed]
+    SendGridResult --> BuildHistory[Build History]
+    TwilioResult --> BuildHistory
     
-    SendGridResult --> BuildHistoryRecords[MessageLogic: Build History Records for all recipients]
-    TwilioResult --> BuildHistoryRecords
-    
-    BuildHistoryRecords --> PrepareBaseFields[Prepare base_fields for each recipient<br/>template_id, template_name, recipient, status, error_message]
-    PrepareBaseFields --> PrepareChannelFields[Prepare channel_fields for each recipient<br/>rendered_content, rendered_subject email, external_message_id]
-    
-    PrepareChannelFields --> BulkInsert[MessageHistoryDA: bulk_insert_with_channel_data]
-    BulkInsert --> InsertBaseTable[Insert into message_history table<br/>All base records in single bulk operation]
-    InsertBaseTable --> InsertSpecificTable[Insert into email_message_history<br/>or sms_message_history<br/>All specific records in single bulk operation]
-    
-    InsertSpecificTable --> CommitDB[Database: Commit Transaction]
-    CommitDB --> BuildResponse[MessageLogic: Build SendMessageResponse]
-    
-    BuildResponse --> AddSuccessResults[Add successful recipients to results array<br/>with external_message_id from API]
-    AddSuccessResults --> AddFailedResults[Add failed recipients to results array<br/>with error_message]
-    AddFailedResults --> Return200[Return 200 OK with per-recipient status<br/>total_recipients, successful_count, failed_count]
+    BuildHistory --> BulkInsert[Bulk Insert DB]
+    BulkInsert --> CommitDB[Commit Transaction]
+    CommitDB --> BuildResponse[Build Response]
+    BuildResponse --> Return200[200 OK]
     
     style Start fill:#e1f5ff
     style RenderTemplate fill:#fff4e1
@@ -301,36 +277,36 @@ flowchart TD
     style ReturnRenderError fill:#ffcdd2
 ```
 
-**Key Flow Steps Explained:**
+**Key Flow Steps:**
 
-1. **Request Validation** → FastAPI validates request schema
-2. **Template Fetching** → MessageLogic retrieves template (by ID or name)
-3. **Template Rendering** → TemplateRenderer renders ONCE (optimization!)
-4. **Variable Validation** → StrictUndefined ensures all variables present
-5. **Channel Selection** → ChannelFactory selects SendGrid or Twilio
-6. **Batch Sending** → Single API call (SendGrid) or concurrent sends (Twilio)
-7. **History Preparation** → Build records for all recipients (successful + failed)
-8. **Bulk Database Insert** → Insert all history records in single transaction
-9. **Response Building** → Aggregate per-recipient status and return
+1. **Request Validation** - FastAPI validates request schema
+2. **Template Fetching** - MessageLogic retrieves template
+3. **Template Rendering** - Render ONCE for all recipients
+4. **Variable Validation** - StrictUndefined ensures variables present
+5. **Channel Selection** - ChannelFactory selects SendGrid or Twilio
+6. **Batch Sending** - Single API call or concurrent sends
+7. **History Preparation** - Build records for all recipients
+8. **Bulk Database Insert** - Single transaction for all records
+9. **Response Building** - Aggregate per-recipient status
 
 ### Template Management Flow
 
 ```mermaid
 flowchart TD
-    Start[Client Request] --> Validate{Validate Request}
-    Validate -->|Invalid| Error[Return 400 Error]
-    Validate -->|Valid| CheckType{Channel Type?}
+    Start[Client Request] --> Validate{Valid?}
+    Validate -->|No| Error[400 Error]
+    Validate -->|Yes| CheckType{Channel?}
     
-    CheckType -->|Email| ValidateEmail["Validate Email Schema<br/>name, subject, content"]
-    CheckType -->|SMS| ValidateSMS["Validate SMS Schema<br/>name, content"]
+    CheckType -->|Email| ValidateEmail[Validate Email]
+    CheckType -->|SMS| ValidateSMS[Validate SMS]
     
-    ValidateEmail --> CheckJinja2["Validate Jinja2 Syntax<br/>content and subject"]
+    ValidateEmail --> CheckJinja2[Check Jinja2]
     ValidateSMS --> CheckJinja2
     
-    CheckJinja2 -->|Invalid| Jinja2Error["Return 400 Error<br/>with syntax details"]
-    CheckJinja2 -->|Valid| InsertCTI["Insert into CTI Tables<br/>templates base table<br/>email_templates or sms_templates"]
+    CheckJinja2 -->|Invalid| Jinja2Error[400 Syntax Error]
+    CheckJinja2 -->|Valid| InsertCTI[Insert CTI Tables]
     
-    InsertCTI --> Return["Return Created Template<br/>with ID and timestamps"]
+    InsertCTI --> Return[Return Template]
 ```
 
 ---
