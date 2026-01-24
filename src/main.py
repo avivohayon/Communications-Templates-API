@@ -13,6 +13,8 @@ from fastapi.responses import JSONResponse
 from src.config import setup_logging, settings
 from src.database import init_db, close_db
 from src.api.router_template import router as template_router
+from src.api.router_message import router as message_router
+from src.api.router_message_history import router as history_router
 
 # Set up logging
 setup_logging()
@@ -61,8 +63,15 @@ app = FastAPI(
 
 # Register template router
 app.include_router(template_router)
-
 logger.info("📝 Registered router: /templates")
+
+# Register message sending router
+app.include_router(message_router, prefix="/messages")
+logger.info("📨 Registered router: /messages")
+
+# Register message history router
+app.include_router(history_router, prefix="/messages")
+logger.info("📊 Registered router: /messages/history")
 
 
 # ============================================================

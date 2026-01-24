@@ -1,354 +1,276 @@
-# Communications API - Home Assignment
+# Communications API
 
-## Welcome!
+A FastAPI-based RESTful API for managing message templates and sending messages via Email (SendGrid) and SMS (Twilio).
 
-Thank you for taking the time to complete this assignment. We're excited to see what you build!
+## 🎯 Features
 
-**Please read all instructions carefully before you begin.**
+### ✅ Implemented
+- **Template Management**: Create, read, update, delete message templates (Email & SMS)
+- **Class Table Inheritance**: Clean database design with polymorphic templates
+- **Jinja2 Templating**: Dynamic variable substitution in messages
+- **Message Channels**: SendGrid (Email) and Twilio (SMS) integrations
+- **Rate Limiting**: Configurable per-recipient message quotas
+- **Soft Deletion**: Data preservation for audit trails
 
----
+### 🚧 In Progress
+- Message sending orchestration
+- Message history tracking
+- Template preview endpoint
 
-## 📋 Overview
+## 🏗️ Architecture
 
-Your task is to build a **Communications API** web server that allows clients to send Email and SMS messages using reusable message templates.
+This project follows a clean 3-layer architecture:
 
-**Time Allocation:** Approximately **3 hours (without the bonus tasks)**
-
----
-
-## 🎯 Evaluation Criteria
-
-Your submission will be evaluated based on:
-
-- **Functionality:** Everything should work according to the instructions. Errors and exceptions should be handled correctly. Bonus points for efficiency.
-- **Code Clarity and Organization:** Clean, well-organized, and easy-to-understand code.
-- **Use of Git:** Organized commits with explanatory messages and effective branch management.
-- **Code Design and Architecture:** Demonstrates good design and architectural decisions for API, data model, and logic.
-- **Testing:** Implemented tests should pass successfully and cover key functionalities.
-- **Best Practices:** Adherence to best practices in backend development.
-- **Documentation:** Clear instructions for setup, usage, and API endpoints. Visual diagrams (flowcharts) are highly valued.
-- **Observability:** Proper logging should be implemented throughout the application. Additional monitoring and telemetry data (metrics, traces, etc.) is encouraged.
-
----
-
-## 💡 Recommended Approach
-
-We suggest tackling this assignment in phases:
-
-1. **Start with core functionality** (Tasks 1-2): Get the basic features working while keeping the evaluation criteria in mind. Focus on clean code, proper error handling, testing, and git commits from the start.
-
-2. **Refine your solution**: Once core features work, consider improvements to:
-   - Architecture and design patterns for maintainability
-   - **Performance optimizations**: How can you reduce unnecessary work and improve response times or make it easy on the system?
-   - **Resilience**: What happens when things go wrong? How does your system handle failures?
-   - **Scalability**: How would your design handle significant load?
-   - **Observability**: How would you monitor and debug this system in production?
-   - Enhanced documentation with diagrams
-
-3. **Add bonus tasks** (if time permits): Start with simpler bonuses (Template Preview, Message History) before more complex ones (Rate Limiting, UI).
-
-**Remember:** A well-executed core implementation is better than rushing through bonus tasks. Quality over quantity!
-
----
-
-## 📝 Project Tasks
-
-### Task 1: Message Template Management
-
-#### What is a Message Template?
-
-A **Message Template** is a pre-designed, reusable content structure with placeholders for customizable content (the message body). These placeholders are later rendered with data (a JSON object) to form a concrete message.
-
-Message templates support two channels: **Email** and **SMS**.
-
-#### Message Template Structure
-
-**Email Message Template:**
-```json
-{
-  "id": "UUID",
-  "name": "string",
-  "content": "string",
-  "template_language": "Handlebars or Jinja2",
-  "subject": "string",
-  "channel_type": "Email"
-}
+```
+API Layer (FastAPI routers)
+    ↓
+Logic Layer (Business rules, validation)
+    ↓
+Data Access Layer (Database operations)
+    ↓
+PostgreSQL Database
 ```
 
-**Example Email Template:**
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Welcome!</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .container { padding: 20px; }
-        .highlight { color: #007BFF; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Hi <span class="highlight">{{name}}</span>,</h1>
-        <p>Welcome to our service! We're excited to have you on board.</p>
-    </div>
-</body>
-</html>
-```
+## 🚀 Quick Start
 
-**SMS Message Template:**
-```json
-{
-  "id": "UUID",
-  "name": "string",
-  "content": "string",
-  "template_language": "Handlebars or Jinja2",
-  "channel_type": "SMS"
-}
-```
+### Prerequisites
+- Python 3.13+
+- Docker & Docker Compose (for PostgreSQL)
+- SendGrid API Key
+- Twilio Account SID & Auth Token
 
-**Example SMS Template:**
-```
-Hi {{name}}! Welcome to our service. We're excited to have you on board.
-```
+### Installation
 
-#### Requirements
+1. **Clone the repository**
+   ```bash
+   cd Aviv-Ohayon_communications-api-exercise/
+   ```
 
-Implement API endpoint(s) that allow clients to:
-- Create message templates for both Email and SMS channels
-- Persist message templates in a database of your choice (SQL, NoSQL, in-memory - your choice)
-- Return the created template with its generated ID
+2. **Create virtual environment**
+   ```bash
+   python3.13 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
 
-The API design and data model architecture are part of your assignment.
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
----
+4. **Set up environment variables**
+   ```bash
+   cp env_template.txt .env
+   # Edit .env with your credentials
+   ```
 
-### Task 2: Send Message
+5. **Start PostgreSQL**
+   ```bash
+   docker-compose up -d
+   ```
 
-#### Requirements
+6. **Run database migrations**
+   ```bash
+   # Connect to PostgreSQL and run SQL files in src/migrations/ in order:
+   # 001_create_templates.sql
+   # 002_create_message_history.sql
+   # 003_create_rate_limits.sql
+   ```
 
-Implement API endpoint(s) that allow clients to send messages using stored templates.
+7. **Start the server**
+   ```bash
+   python run_server.py
+   ```
 
-**Example Request Data:**
-```json
-{
-  "template_id": "uuid-here",
-  "template_name": "welcome_template",
-  "data": {
-    "name": "Alex"
-  },
-  "to": ["recipient1@email.com", "recipient2@email.com", "+972123456789"]
-}
-```
+8. **Access API documentation**
+   ```
+   http://localhost:8002/docs
+   ```
 
-**Note:** The API should support template lookup by either `template_id` OR `template_name`.
+## 📚 API Endpoints
 
-**Functionality:**
-1. Retrieve the message template by ID or name
-2. Render the template content using the provided data (context)
-3. Send the message to all recipients through the appropriate channel (Email or SMS)
+### Template Management
 
-The API design and architecture are part of your assignment.
-
-#### Channel Integration
-
-##### **Email - SendGrid**
-
-- API Documentation: https://docs.sendgrid.com/api-reference/mail-send/mail-send
-- API Key: Sent to you via email
-- From Email: `lendbuzz.candidate@outlook.com`
-
-**⚠️ Sandbox Mode:** Emails will not actually be sent. The API will return a success response without delivering emails.
-
-**Sendgrid Send Command Example:**
+#### Create Template
 ```bash
-curl -X POST https://api.sendgrid.com/v3/mail/send \
--H 'Authorization: Bearer <api-key>' \
--H 'Content-Type: application/json' \
--d '{
-  "from": {
-    "email": "lendbuzz.candidate@outlook.com",
-    "name": "Me"
-  },
-  "personalizations": [
-    {
-      "to": [
-        {
-          "email": "<your_email_address>"
-        }
-      ]
-    }
-  ],
-  "subject": "hi",
-  "content": [
-    {
-      "type": "text/html",
-      "value": "Hi there,\n\nThis is a test email sent using the curl command and the SendGrid API.\n\nBest regards,\nMe"
-    }
-  ],
-  "mail_settings": {
-    "sandbox_mode": {
-      "enable": true
-    }
-  }
-}'
+POST /templates/
+
+# Email template
+{
+  "name": "welcome_email",
+  "channel_type": "email",
+  "subject": "Welcome {{name}}!",
+  "content": "<h1>Hello {{name}}</h1>"
+}
+
+# SMS template
+{
+  "name": "verification_sms",
+  "channel_type": "sms",
+  "content": "Your code is {{code}}"
+}
 ```
 
-##### **SMS - Twilio**
-
-- API Documentation: https://www.twilio.com/docs/sms/api
-- Simulate errors (for error handling and testing purposes): https://www.twilio.com/docs/iam/test-credentials#test-sms-messages-parameters-to
-- Credentials: Sent to you via email
-- Account SID: `your_twilio_account_sid`
-- From Number: `+15005550006`
-
-**⚠️ Sandbox Mode:** SMS messages will not actually be sent. The API will return a success response without delivering messages.
-
-**Twilio Send Command Example:**
+#### Get Template by ID
 ```bash
-curl -X POST https://api.twilio.com/2010-04-01/Accounts/your_twilio_account_sid/Messages.json \
---data-urlencode "To=+972<number>" \
---data-urlencode "From=+15005550006" \
---data-urlencode "Body=Hello from Twilio via cURL!" \
--u your_twilio_account_sid:your_auth_token
+GET /templates/{template_id}
 ```
 
----
+#### Get Template by Name
+```bash
+GET /templates/by-name/{name}
+```
 
-## 🎁 Bonus Tasks (Optional)
+#### List All Templates
+```bash
+GET /templates/?skip=0&limit=100
+```
 
-These tasks are optional but will be viewed favorably:
-
-### Bonus Task 3: Template Preview
-
-Implement an API endpoint that allows clients to preview how a template will look with sample data **without actually sending** the message.
-
-**Example Request:**
-```json
-POST /templates/{id}/preview
+#### Update Template
+```bash
+PUT /templates/{template_id}
 {
-  "data": {
-    "name": "Alex",
-    "amount": 1000
-  }
+  "subject": "Welcome aboard, {{name}}!"
 }
 ```
 
-**Example Response:**
-```json
+#### Delete Template
+```bash
+DELETE /templates/{template_id}
+```
+
+### Message Sending (Coming Soon)
+```bash
+POST /messages/send
 {
-  "rendered_content": "Hi Alex! Your payment of $1000 has been processed.",
-  "subject": "Payment Confirmation"
+  "template_name": "welcome_email",
+  "data": {"name": "John"},
+  "to": ["user@example.com"]
 }
 ```
 
-This feature helps users validate their templates before sending actual messages.
+## 🗄️ Database Schema
 
----
+### Class Table Inheritance Design
 
-### Bonus Task 4: Message History
-
-Implement API endpoint(s) that allow clients to view the history of sent messages.
-
-**Functionality:**
-- Retrieve a list of sent messages with relevant details:
-  - Message ID
-  - Template used (ID and name)
-  - Recipients
-  - Channel (Email or SMS)
-  - Timestamp
-  - Status (success/failure)
-  - Rendered content (optional)
-- Support filtering by:
-  - Channel type (Email or SMS)
-  - Template ID or name
-  - Recipient
-  - Status
-
-The API design and data structure are part of your assignment.
-
----
-
-### Bonus Task 5: Rate Limiting
-
-Implement rate limiting to prevent spam and system abuse.
-
-**Requirements:**
-- Track the number of messages sent to each recipient (email address or phone number)
-- Enforce a limit (e.g., maximum 5 messages per recipient per hour)
-- Return an appropriate error response when the limit is exceeded
-- Include rate limit information in API responses (e.g., remaining quota, reset time)
-
-**Example Error Response:**
-```json
-{
-  "error": "Rate limit exceeded",
-  "message": "Maximum 5 messages per hour allowed for recipient@email.com",
-  "retry_after": "2025-12-02T15:30:00Z"
-}
+**Templates:**
+```
+templates (base)
+  ├─→ email_templates (content, subject)
+  └─→ sms_templates (content)
 ```
 
-The implementation approach (in-memory, database, cache, etc.) is your choice.
+**Message History:**
+```
+message_history (base)
+  ├─→ email_message_history (rendered_content, rendered_subject, sendgrid_id)
+  └─→ sms_message_history (rendered_content, twilio_sid)
+```
 
----
+**Rate Limits:**
+```
+rate_limits (recipient, message_count, window_start)
+```
 
-### Bonus Task 6: Template Management UI
+## 🧪 Testing
 
-Build a basic user interface for managing message templates.
+### Run Tests
+```bash
+pytest -v
+```
 
-**Requirements:**
-- Create a web-based UI that allows users to:
-  - View all existing templates in a list or table format
-  - Create new templates with a form (name, content, template language, channel type, subject for emails)
-  - Edit existing templates
-  - Delete templates
-  - View message history for a given template
-- The UI should be intuitive and user-friendly
+### Test Template CRUD
+```bash
+# Create email template
+curl -X POST http://localhost:8002/templates/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test_email",
+    "channel_type": "email",
+    "subject": "Test {{variable}}",
+    "content": "<p>Hello {{variable}}</p>"
+  }'
+```
 
-**Technical Implementation:**
-- You can use any frontend framework or library (React, Vue, Angular, plain HTML/CSS/JS, etc.)
-- The UI should communicate with your API endpoints
-- Bonus points for responsive design that works on mobile devices
+## 📖 Configuration
 
-**Example Features:**
-- Syntax highlighting for template content
-- Real-time preview of template rendering
-- Template validation feedback
-- Search/filter functionality for templates
+### Environment Variables
 
-This task demonstrates full-stack capabilities and understanding of complete application development.
+Create a `.env` file with:
 
----
+```env
+# Database
+DATABASE_URL=postgresql+asyncpg://user123:pwd123@localhost:5555/project_db
+POSTGRES_USER=user123
+POSTGRES_PASSWORD=pwd123
+POSTGRES_DB=project_db
 
-## 🚀 Submission Instructions
+# SendGrid (Email)
+SENDGRID_API_KEY=your_api_key_here
+SENDGRID_FROM_EMAIL=your_email@example.com
 
-1. **Complete the implementation** following the requirements above
-2. **Write tests** for key functionalities
-3. **Add documentation** with clear instructions on how to use your API:
-   - Setup instructions (dependencies, environment variables, database setup)
-   - How to run the application
-   - API endpoints documentation with examples
-   - **Recommended:** Include a flowchart showing the message sending flow (template retrieval → rendering → channel selection → delivery)
-4. **Commit your work** with clear, explanatory commit messages
-5. **Submit a Pull Request** with your solution
+# Twilio (SMS)
+TWILIO_ACCOUNT_SID=your_account_sid_here
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_FROM_NUMBER=+15005550006
 
----
+# Application
+LOG_LEVEL=INFO
+ENVIRONMENT=development
 
-## 🤖 AI Tools Policy
+# Rate Limiting
+MAX_MESSAGES_PER_RECIPIENT_PER_HOUR=5
+```
 
-**You are welcome to use AI tools** (ChatGPT, GitHub Copilot, Claude, etc.) to assist with this assignment.
+## 🏛️ Project Structure
 
-**However, you are expected to:**
-- Fully understand all the code you submit
-- Be able to explain any part of your implementation
-- Stand behind the architectural and design decisions made
+```
+src/
+├── api/                # FastAPI routers
+├── logic/              # Business logic layer
+├── das/                # Data access layer
+├── models/             # SQLAlchemy models
+├── schemas/            # Pydantic schemas
+├── services/           # External services (SendGrid, Twilio, etc.)
+├── migrations/         # SQL migration files
+├── config.py           # Configuration management
+├── database.py         # Database session management
+└── main.py             # FastAPI application
+```
 
----
+## 💡 Key Design Decisions
 
-## 📞 Need Help?
+1. **Class Table Inheritance (CTI)**: Separate tables for email vs SMS templates to avoid sparse columns and enable extensibility.
 
-**We're here to support you!**
+2. **Jinja2 Templates**: Powerful templating engine with variable substitution, filters, and control structures.
 
-Don't hesitate to reach out if you have any questions, no matter how small. We want you to succeed and are happy to clarify anything that's unclear.
+3. **3-Layer Architecture**: Clean separation between API, business logic, and data access for maintainability and testability.
 
-**Good luck! We're excited to see your solution! 🎉**
+4. **Async All the Way**: Leverages Python's asyncio for better I/O performance.
+
+5. **Soft Deletion**: Preserves data for audit trails and regulatory compliance.
+
+6. **UTC Timestamps**: All timestamps stored as Unix timestamps (integers) in UTC for consistency.
+
+## 🛠️ Technology Stack
+
+- **Framework**: FastAPI
+- **Database**: PostgreSQL
+- **ORM**: SQLAlchemy (async)
+- **Validation**: Pydantic
+- **Templating**: Jinja2
+- **Email**: SendGrid API
+- **SMS**: Twilio API
+- **Testing**: pytest, httpx
+
+## 📝 License
+
+This is a home assignment project for LendBuzz technical interview.
+
+## 👤 Author
+
+Aviv Ohayon
+
+## 🙏 Acknowledgments
+
+- Inspired by the `python_home_assignment` architecture
+- Built following the `SERVER_SETUP_INSTRUCTIONS.md` best practices

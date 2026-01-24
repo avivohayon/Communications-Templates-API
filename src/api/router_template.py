@@ -8,6 +8,7 @@ Endpoints:
 - GET /templates/by-name/{name} - Get template by name
 - PUT /templates/{id} - Update template
 - DELETE /templates/{id} - Soft delete template
+- POST /templates/{id}/preview - Preview template rendering
 """
 import logging
 from typing import Union, List
@@ -22,6 +23,10 @@ from src.schemas.schema_template import (
     EmailTemplateIn, SMSTemplateIn,
     EmailTemplateOut, SMSTemplateOut,
     EmailTemplateUpdate, SMSTemplateUpdate
+)
+from src.schemas.schema_preview import (
+    TemplatePreviewRequest,
+    TemplatePreviewResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -202,3 +207,74 @@ async def delete_template(
     except Exception as e:
         logger.error(f"Error deleting template: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post(
+    "/{template_id}/preview",
+    response_model=TemplatePreviewResponse,
+    summary="Preview template rendering"
+)
+async def preview_template(
+    template_id: UUID,
+    request: TemplatePreviewRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Preview how a template will render with provided data (without sending).
+    
+    This is useful for:
+    - Testing template rendering before sending
+    - Previewing template output with sample data
+    - Debugging template syntax and variables
+    
+    **Example Request:**
+    ```json
+    {
+      "data": {
+        "name": "John Doe",
+        "code": "123456"
+      }
+    }
+    ```
+    
+    **Example Response (Email):**
+    ```json
+    {
+      "rendered_content": "<h1>Hello John Doe</h1>",
+      "rendered_subject": "Welcome John Doe!"
+    }
+    ```
+    
+    **Example Response (SMS):**
+    ```json
+    {
+      "rendered_content": "Your code is 123456",
+      "rendered_subject": null
+    }
+    ```
+    
+    **Errors:**
+    - 404: Template not found
+    - 400: Template rendering error (invalid syntax, missing variables, etc.)
+    """
+    try:
+        result = await template_logic.preview(db, template_id, request.data)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        logger.info(f"Generated preview for template id={template_id}")
+        return result
+        
+    except ValueError as e:
+        # Template rendering errors (missing variables, invalid syntax)
+        logger.warning(f"Template rendering error for template id={template_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    except HTTPException:
+        raise
+        
+    except Exception as e:
+        logger.error(f"Error generating preview for template id={template_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+

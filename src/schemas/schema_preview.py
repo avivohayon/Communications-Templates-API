@@ -1,8 +1,6 @@
 from typing import Dict, Any
 from pydantic import BaseModel, Field
 
-from src.models.enums import ChannelType
-
 
 class TemplatePreviewRequest(BaseModel):
     """
@@ -15,20 +13,11 @@ class TemplatePreviewRequest(BaseModel):
     )
 
 
-class EmailTemplatePreviewResponse(BaseModel):
+class TemplatePreviewResponse(BaseModel):
     """
-    Schema for email template preview responses.
+    Schema for template preview responses.
+    Works for both email and SMS templates.
     """
-    rendered_content: str = Field(..., description="Rendered email HTML/text content")
-    rendered_subject: str = Field(..., description="Rendered email subject")
+    rendered_content: str = Field(..., description="Rendered content (HTML for email, text for SMS)")
+    rendered_subject: str | None = Field(None, description="Rendered subject (email only)")
 
-
-class SMSTemplatePreviewResponse(BaseModel):
-    """
-    Schema for SMS template preview responses.
-    """
-    rendered_content: str = Field(..., description="Rendered SMS text content")
-
-
-# Union for preview responses
-TemplatePreviewResponse = EmailTemplatePreviewResponse | SMSTemplatePreviewResponse

@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import Dict, Any, List
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
 from src.models.enums import ChannelType
 
@@ -33,17 +33,12 @@ class SendMessageRequest(BaseModel):
         examples=[["user@example.com"], ["+15005550006"]]
     )
     
-    @field_validator('template_id', 'template_name')
-    def at_least_one_identifier(cls, v, info):
+    @model_validator(mode='after')
+    def check_template_identifier(self):
         """Ensure at least one of template_id or template_name is provided."""
-        values = info.data
-        template_id = values.get('template_id')
-        template_name = values.get('template_name')
-        
-        if not template_id and not template_name:
+        if not self.template_id and not self.template_name:
             raise ValueError("At least one of template_id or template_name must be provided")
-        
-        return v
+        return self
 
 
 class MessageRecipientResult(BaseModel):

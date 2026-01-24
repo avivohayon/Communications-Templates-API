@@ -7,7 +7,7 @@ This logic layer does NOT inherit from BaseLogic because CTI requires custom han
 - Must validate Jinja2 syntax before saving
 """
 import logging
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict, Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from src.schemas.schema_template import (
     EmailTemplateOut, SMSTemplateOut,
     EmailTemplateUpdate, SMSTemplateUpdate
 )
+from src.schemas.schema_preview import TemplatePreviewResponse
 from src.services.template_renderer import template_renderer
 
 logger = logging.getLogger(__name__)
@@ -332,3 +333,63 @@ class TemplateLogic:
             return EmailTemplateOut(**data)
         else:
             return SMSTemplateOut(**data)
+    
+    async def preview(
+        self,
+        db: AsyncSession,
+        template_id: UUID,
+        data: Dict[str, Any]
+    ) -> Optional[TemplatePreviewResponse]:
+        """
+        Render template with provided data without sending (preview).
+        
+        This allows users to test template rendering before actually sending messages.
+        
+        Args:
+            db: Database session
+            template_id: Template UUID
+            data: Dictionary of variables to inject into template
+        
+        Returns:
+            TemplatePreviewResponse with rendered content and subject (if email)
+            None if template not found
+        
+        Raises:
+            ValueError: Template rendering errors (invalid syntax, missing variables)
+        """
+        try:
+            logger.info(f"Generating preview for template id={template_id}")
+            
+            # Fetch template
+            template = await self.get_by_id(db, template_id)
+            if not template:
+                logger.warning(f"Template id={template_id} not found for preview")
+                return None
+            
+            # Render content
+            rendered_content = template_renderer.render(template.content, data)
+            logger.debug(f"Template content rendered successfully (length: {len(rendered_content)})")
+            
+            # Render subject if email
+            rendered_subject = None
+            if template.channel_type == ChannelType.EMAIL:
+                if not template.subject:
+                    raise ValueError("Email template missing subject")
+                rendered_subject = template_renderer.render(template.subject, data)
+                logger.debug(f"Template subject rendered successfully")
+            
+            # Build response
+            response = TemplatePreviewResponse(
+                rendered_content=rendered_content,
+                rendered_subject=rendered_subject
+            )
+            
+            logger.info(f"Preview generated successfully for template id={template_id}")
+            return response
+            
+        except ValueError as e:
+            logger.error(f"Template rendering error during preview: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error generating preview for template id={template_id}: {e}")
+            raise
