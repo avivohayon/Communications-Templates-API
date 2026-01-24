@@ -1,0 +1,21 @@
+# Database Configuration
+DATABASE_URL=postgresql+asyncpg://user123:pwd123@localhost:5555/project_db
+POSTGRES_USER=user123
+POSTGRES_PASSWORD=pwd123
+POSTGRES_DB=project_db
+
+# SendGrid Configuration (Email)
+SENDGRID_API_KEY=your_sendgrid_api_key_here
+SENDGRID_FROM_EMAIL=lendbuzz.candidate@outlook.com
+
+# Twilio Configuration (SMS)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+TWILIO_FROM_NUMBER=+15005550006
+
+# Application Configuration
+LOG_LEVEL=INFO
+ENVIRONMENT=development
+
+# Rate Limiting
+MAX_MESSAGES_PER_RECIPIENT_PER_HOUR=5
