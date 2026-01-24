@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import setup_logging, settings
 from src.database import init_db, close_db
@@ -54,6 +55,21 @@ app = FastAPI(
     description="API for managing message templates and sending messages via Email and SMS",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# ============================================================
+# CORS CONFIGURATION
+# ============================================================
+# Allow requests from the frontend (localhost:3000)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # React frontend
+        "http://127.0.0.1:3000",  # Alternative localhost
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allow all headers
 )
 
 

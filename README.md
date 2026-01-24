@@ -83,70 +83,70 @@ This Communications API enables clients to:
 
 ```mermaid
 graph TB
-    subgraph Client["Client Applications"]
-        API_Client["API Client"]
+    subgraph client["Client Applications"]
+        apiClient["API Client"]
     end
-    
-    subgraph API_Layer["API Layer (FastAPI)"]
-        Router_Template["/templates<br/>Router"]
-        Router_Message["/messages<br/>Router"]
-        Router_History["/messages/history<br/>Router"]
+
+    subgraph apiLayer["API Layer (FastAPI)"]
+        routerTemplate["/templates Router"]
+        routerMessage["/messages Router"]
+        routerHistory["/messages/history Router"]
     end
-    
-    subgraph Logic_Layer["Business Logic Layer"]
-        Template_Logic["TemplateLogic<br/>- Validation<br/>- Jinja2 syntax check"]
-        Message_Logic["MessageLogic<br/>- Orchestration<br/>- Batch sending"]
-        History_Logic["MessageHistoryLogic<br/>- Filtering<br/>- CTI conversion"]
+
+    subgraph logicLayer["Business Logic Layer"]
+        templateLogic["TemplateLogic<br/>Validation & Jinja2"]
+        messageLogic["MessageLogic<br/>Orchestration & Batch"]
+        historyLogic["MessageHistoryLogic<br/>Filtering & CTI"]
     end
-    
-    subgraph DA_Layer["Data Access Layer"]
-        Template_DA["TemplateDA<br/>- CTI operations"]
-        Message_DA["MessageHistoryDA<br/>- Bulk inserts"]
-        RateLimit_DA["RateLimitDA<br/>- Quota tracking"]
+
+    subgraph daLayer["Data Access Layer"]
+        templateDA["TemplateDA<br/>CTI Operations"]
+        messageDA["MessageHistoryDA<br/>Bulk Inserts"]
+        rateLimitDA["RateLimitDA<br/>Quota Tracking"]
     end
-    
-    subgraph Services["External Services"]
-        Template_Renderer["TemplateRenderer<br/>- Jinja2 rendering<br/>- StrictUndefined"]
-        SendGrid_Channel["SendGridChannel<br/>- Batch API"]
-        Twilio_Channel["TwilioChannel<br/>- Concurrent sends"]
-        RateLimiter["RateLimiterService<br/>- Quota checks"]
+
+    subgraph services["External Services"]
+        templateRenderer["TemplateRenderer<br/>Jinja2 & StrictUndefined"]
+        sendGridChannel["SendGridChannel<br/>Batch API"]
+        twilioChannel["TwilioChannel<br/>Concurrent Sends"]
+        rateLimiter["RateLimiterService<br/>Quota Checks"]
     end
-    
-    subgraph Database["PostgreSQL Database"]
-        Templates_Table["templates<br/>email_templates<br/>sms_templates"]
-        History_Table["message_history<br/>email_message_history<br/>sms_message_history"]
-        RateLimit_Table["rate_limits"]
+
+    subgraph database["PostgreSQL Database"]
+        templatesTable["templates<br/>email_templates<br/>sms_templates"]
+        historyTable["message_history<br/>email_message_history<br/>sms_message_history"]
+        rateLimitTable["rate_limits"]
     end
-    
-    subgraph External["External APIs"]
-        SendGrid_API["SendGrid API<br/>(Email)"]
-        Twilio_API["Twilio API<br/>(SMS)"]
+
+    subgraph external["External APIs"]
+        sendGridAPI["SendGrid API (Email)"]
+        twilioAPI["Twilio API (SMS)"]
     end
-    
-    API_Client --> Router_Template
-    API_Client --> Router_Message
-    API_Client --> Router_History
-    
-    Router_Template --> Template_Logic
-    Router_Message --> Message_Logic
-    Router_History --> History_Logic
-    
-    Template_Logic --> Template_DA
-    Template_Logic --> Template_Renderer
-    Message_Logic --> Template_Logic
-    Message_Logic --> Message_DA
-    Message_Logic --> SendGrid_Channel
-    Message_Logic --> Twilio_Channel
-    Message_Logic --> RateLimiter
-    History_Logic --> Message_DA
-    
-    Template_DA --> Templates_Table
-    Message_DA --> History_Table
-    RateLimit_DA --> RateLimit_Table
-    RateLimiter --> RateLimit_DA
-    
-    SendGrid_Channel --> SendGrid_API
-    Twilio_Channel --> Twilio_API
+
+    apiClient --> routerTemplate
+    apiClient --> routerMessage
+    apiClient --> routerHistory
+
+    routerTemplate --> templateLogic
+    routerMessage --> messageLogic
+    routerHistory --> historyLogic
+
+    templateLogic --> templateDA
+    templateLogic --> templateRenderer
+    messageLogic --> templateLogic
+    messageLogic --> messageDA
+    messageLogic --> sendGridChannel
+    messageLogic --> twilioChannel
+    messageLogic --> rateLimiter
+    historyLogic --> messageDA
+
+    templateDA --> templatesTable
+    messageDA --> historyTable
+    rateLimitDA --> rateLimitTable
+    rateLimiter --> rateLimitDA
+
+    sendGridChannel --> sendGridAPI
+    twilioChannel --> twilioAPI
 ```
 
 ### 3-Layer Architecture
@@ -192,46 +192,46 @@ sequenceDiagram
     participant Logic as MessageLogic
     participant TemplateLogic as TemplateLogic
     participant Renderer as TemplateRenderer
-    participant Channel as Channel (SendGrid/Twilio)
+    participant Channel as Channel SendGrid/Twilio
     participant History as MessageHistoryDA
     participant DB as PostgreSQL
     
-    Client->>API: POST /messages/send<br/>{template_id, data, to: [...]}
+    Client->>API: POST /messages/send with template_id, data, recipients
     API->>Logic: send_messages(request)
     
     Note over Logic: Step 1: Fetch Template
     Logic->>TemplateLogic: get_by_id(template_id)
-    TemplateLogic->>DB: Query template (CTI join)
+    TemplateLogic->>DB: Query template with CTI join
     DB-->>TemplateLogic: Template + EmailTemplate/SMSTemplate
     TemplateLogic-->>Logic: TemplateOut schema
     
-    Note over Logic: Step 2: Render ONCE (Optimization!)
+    Note over Logic: Step 2: Render ONCE Optimization
     Logic->>Renderer: render(content, data)
     Renderer-->>Logic: rendered_content
-    Logic->>Renderer: render(subject, data) [if email]
+    Logic->>Renderer: render(subject, data) if email
     Renderer-->>Logic: rendered_subject
     
     Note over Logic: Step 3: Batch Send
     Logic->>Channel: send_batch(recipients, content, subject)
     
-    alt SendGrid (Email)
+    alt SendGrid Email
         Channel->>Channel: Build personalizations array
-        Channel->>SendGrid: Single API call (batch)
+        Channel->>SendGrid: Single API call batch
         SendGrid-->>Channel: BatchMessageSendResult
-    else Twilio (SMS)
+    else Twilio SMS
         Channel->>Channel: Create concurrent tasks
-        Channel->>Twilio: Concurrent API calls (asyncio.gather)
+        Channel->>Twilio: Concurrent API calls asyncio.gather
         Twilio-->>Channel: Per-recipient results
         Channel->>Channel: Aggregate results
         Channel-->>Channel: BatchMessageSendResult
     end
     
-    Channel-->>Logic: BatchMessageSendResult<br/>{successful, failed, external_ids}
+    Channel-->>Logic: BatchMessageSendResult with successful, failed, external_ids
     
     Note over Logic: Step 4: Bulk Insert History
-    Logic->>Logic: Build history records (all recipients)
+    Logic->>Logic: Build history records for all recipients
     Logic->>History: bulk_insert_with_channel_data(records)
-    History->>DB: Bulk insert (base + specific tables)
+    History->>DB: Bulk insert base and specific tables
     DB-->>History: Success
     History-->>Logic: Complete
     
@@ -241,6 +241,78 @@ sequenceDiagram
     API-->>Client: 200 OK with results
 ```
 
+### Message Sending Flow - Complete Process
+
+This detailed flowchart shows the complete end-to-end flow when a client sends a message, including all logic handling, history registration, and database storage operations:
+
+```mermaid
+flowchart TD
+    Start[Client sends POST /messages/send] --> ValidateRequest{Validate Request Schema}
+    ValidateRequest -->|Invalid| Return400[Return 400 Bad Request]
+    ValidateRequest -->|Valid| FetchTemplate[MessageLogic: Fetch Template by ID or Name]
+    
+    FetchTemplate --> TemplateFound{Template Found?}
+    TemplateFound -->|No| Return404[Return 404 Not Found]
+    TemplateFound -->|Yes| CheckDeleted{Status = deleted?}
+    CheckDeleted -->|Yes| ReturnError[Return 400 Cannot use deleted template]
+    CheckDeleted -->|No| RenderTemplate[TemplateRenderer: Render Template ONCE for all recipients]
+    
+    RenderTemplate --> ValidateVariables{All Variables Present?}
+    ValidateVariables -->|No| ReturnRenderError[Return 400 Missing Variables Error]
+    ValidateVariables -->|Yes| GetChannel[ChannelFactory: Get Channel by Type]
+    
+    GetChannel --> ChannelType{Channel Type?}
+    ChannelType -->|Email| SendGridBatch[SendGridChannel: send_batch]
+    ChannelType -->|SMS| TwilioConcurrent[TwilioChannel: send_batch concurrent]
+    
+    SendGridBatch --> BuildPersonalizations[Build personalizations array for all recipients]
+    BuildPersonalizations --> SingleAPICall[Single SendGrid API call with batch]
+    SingleAPICall --> SendGridResult[BatchMessageSendResult with all recipients]
+    
+    TwilioConcurrent --> CreateTasks[Create async tasks for each recipient]
+    CreateTasks --> ConcurrentAPICalls[Concurrent Twilio API calls using asyncio.gather]
+    ConcurrentAPICalls --> AggregateResults[Aggregate per-recipient results]
+    AggregateResults --> TwilioResult[BatchMessageSendResult with successful/failed]
+    
+    SendGridResult --> BuildHistoryRecords[MessageLogic: Build History Records for all recipients]
+    TwilioResult --> BuildHistoryRecords
+    
+    BuildHistoryRecords --> PrepareBaseFields[Prepare base_fields for each recipient<br/>template_id, template_name, recipient, status, error_message]
+    PrepareBaseFields --> PrepareChannelFields[Prepare channel_fields for each recipient<br/>rendered_content, rendered_subject email, external_message_id]
+    
+    PrepareChannelFields --> BulkInsert[MessageHistoryDA: bulk_insert_with_channel_data]
+    BulkInsert --> InsertBaseTable[Insert into message_history table<br/>All base records in single bulk operation]
+    InsertBaseTable --> InsertSpecificTable[Insert into email_message_history<br/>or sms_message_history<br/>All specific records in single bulk operation]
+    
+    InsertSpecificTable --> CommitDB[Database: Commit Transaction]
+    CommitDB --> BuildResponse[MessageLogic: Build SendMessageResponse]
+    
+    BuildResponse --> AddSuccessResults[Add successful recipients to results array<br/>with external_message_id from API]
+    AddSuccessResults --> AddFailedResults[Add failed recipients to results array<br/>with error_message]
+    AddFailedResults --> Return200[Return 200 OK with per-recipient status<br/>total_recipients, successful_count, failed_count]
+    
+    style Start fill:#e1f5ff
+    style RenderTemplate fill:#fff4e1
+    style BulkInsert fill:#e8f5e9
+    style CommitDB fill:#e8f5e9
+    style Return200 fill:#c8e6c9
+    style Return400 fill:#ffcdd2
+    style Return404 fill:#ffcdd2
+    style ReturnRenderError fill:#ffcdd2
+```
+
+**Key Flow Steps Explained:**
+
+1. **Request Validation** → FastAPI validates request schema
+2. **Template Fetching** → MessageLogic retrieves template (by ID or name)
+3. **Template Rendering** → TemplateRenderer renders ONCE (optimization!)
+4. **Variable Validation** → StrictUndefined ensures all variables present
+5. **Channel Selection** → ChannelFactory selects SendGrid or Twilio
+6. **Batch Sending** → Single API call (SendGrid) or concurrent sends (Twilio)
+7. **History Preparation** → Build records for all recipients (successful + failed)
+8. **Bulk Database Insert** → Insert all history records in single transaction
+9. **Response Building** → Aggregate per-recipient status and return
+
 ### Template Management Flow
 
 ```mermaid
@@ -249,16 +321,16 @@ flowchart TD
     Validate -->|Invalid| Error[Return 400 Error]
     Validate -->|Valid| CheckType{Channel Type?}
     
-    CheckType -->|Email| ValidateEmail[Validate Email Schema<br/>- name<br/>- subject<br/>- content]
-    CheckType -->|SMS| ValidateSMS[Validate SMS Schema<br/>- name<br/>- content]
+    CheckType -->|Email| ValidateEmail["Validate Email Schema<br/>name, subject, content"]
+    CheckType -->|SMS| ValidateSMS["Validate SMS Schema<br/>name, content"]
     
-    ValidateEmail --> CheckJinja2[Validate Jinja2 Syntax<br/>- content<br/>- subject]
+    ValidateEmail --> CheckJinja2["Validate Jinja2 Syntax<br/>content and subject"]
     ValidateSMS --> CheckJinja2
     
-    CheckJinja2 -->|Invalid| Jinja2Error[Return 400 Error<br/>with syntax details]
-    CheckJinja2 -->|Valid| InsertCTI[Insert into CTI Tables<br/>- templates (base)<br/>- email_templates/sms_templates]
+    CheckJinja2 -->|Invalid| Jinja2Error["Return 400 Error<br/>with syntax details"]
+    CheckJinja2 -->|Valid| InsertCTI["Insert into CTI Tables<br/>templates base table<br/>email_templates or sms_templates"]
     
-    InsertCTI --> Return[Return Created Template<br/>with ID and timestamps]
+    InsertCTI --> Return["Return Created Template<br/>with ID and timestamps"]
 ```
 
 ---
