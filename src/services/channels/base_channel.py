@@ -74,3 +74,31 @@ class MessageChannel(ABC):
             Exception: Channel-specific errors (API failures, network issues, etc.)
         """
         pass
+    
+    @abstractmethod
+    async def send_batch(
+        self,
+        recipients: list[str],
+        content: str,
+        subject: str | None = None
+    ) -> BatchMessageSendResult:
+        """
+        Send a message to multiple recipients in a batch.
+        
+        This is optimized for sending the same content to many recipients.
+        Individual channels may implement this differently:
+        - SendGrid: Native batch API with personalizations array
+        - Twilio: Concurrent sends using asyncio.gather
+        
+        Args:
+            recipients: List of recipient addresses (emails or phone numbers)
+            content: Message content (HTML for email, text for SMS)
+            subject: Message subject (required for email, ignored for SMS)
+        
+        Returns:
+            BatchMessageSendResult with per-recipient success/failure status
+        
+        Raises:
+            Exception: Channel-specific errors (API failures, network issues, etc.)
+        """
+        pass

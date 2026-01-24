@@ -7,9 +7,10 @@ API Documentation: https://www.twilio.com/docs/sms/api/message-resource
 import logging
 import base64
 import httpx
+import asyncio
 
 from src.config import settings
-from src.services.channels.base_channel import MessageChannel, MessageSendResult
+from src.services.channels.base_channel import MessageChannel, MessageSendResult, BatchMessageSendResult
 
 logger = logging.getLogger(__name__)
 
@@ -97,3 +98,72 @@ class TwilioChannel(MessageChannel):
             error = f"Twilio error: {str(e)}"
             logger.error(error, exc_info=True)
             return MessageSendResult(success=False, error=error)
+    
+    async def send_batch(
+        self,
+        recipients: list[str],
+        content: str,
+        subject: str | None = None
+    ) -> BatchMessageSendResult:
+        """
+        Send SMS to multiple recipients concurrently.
+        
+        Twilio does not support native batch sending, so we send
+        to multiple recipients concurrently using asyncio.gather.
+        This is much faster than sequential sending.
+        
+        Args:
+            recipients: List of recipient phone numbers (E.164 format)
+            content: SMS text content
+            subject: Ignored for SMS
+        
+        Returns:
+            BatchMessageSendResult with per-recipient success/failure status
+        """
+        if not recipients:
+            logger.warning("send_batch called with empty recipients list")
+            return BatchMessageSendResult(
+                successful_recipients=[],
+                failed_recipients={},
+                external_ids={}
+            )
+        
+        logger.info(f"Sending SMS batch to {len(recipients)} recipients concurrently")
+        
+        # Send to all recipients concurrently
+        tasks = [
+            self.send(recipient=r, content=content, subject=subject)
+            for r in recipients
+        ]
+        
+        # Gather results, don't stop on exceptions
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Aggregate results
+        successful = []
+        failed = {}
+        external_ids = {}
+        
+        for recipient, result in zip(recipients, results):
+            if isinstance(result, Exception):
+                # Exception during send
+                error_msg = str(result)
+                failed[recipient] = error_msg
+                logger.error(f"❌ Exception sending to {recipient}: {error_msg}")
+            elif result.success:
+                # Success
+                successful.append(recipient)
+                external_ids[recipient] = result.external_id
+                logger.debug(f"✅ Sent to {recipient}, SID: {result.external_id}")
+            else:
+                # Failed with error
+                failed[recipient] = result.error
+                logger.error(f"❌ Failed to send to {recipient}: {result.error}")
+        
+        logger.info(f"Batch send complete: {len(successful)} succeeded, {len(failed)} failed")
+        
+        return BatchMessageSendResult(
+            successful_recipients=successful,
+            failed_recipients=failed,
+            external_ids=external_ids
+        )

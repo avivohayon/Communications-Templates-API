@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Rate Limiting
     MAX_MESSAGES_PER_RECIPIENT_PER_HOUR: int = 5
     
+    # Batch Sending Configuration
+    SENDGRID_BATCH_SIZE: int = 100  # Max 1000, recommended 100-500
+    TWILIO_BATCH_SIZE: int = 50  # For concurrent sends
+    ENABLE_PARALLEL_BATCHES: bool = False  # Future: process batches in parallel
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

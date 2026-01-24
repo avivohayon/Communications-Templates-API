@@ -257,3 +257,89 @@ class MessageHistoryDA(BaseDA):
         except Exception as e:
             logger.error(f"Error querying MessageHistory with filters: {e}")
             raise
+    
+    async def bulk_insert_with_channel_data(
+        self,
+        db: AsyncSession,
+        records: list[dict],
+        channel_type: ChannelType
+    ) -> None:
+        """
+        Bulk insert multiple message history records efficiently.
+        
+        This method optimizes insertion of many history records by:
+        1. Preparing all records in memory
+        2. Using db.add_all() for bulk insert
+        3. Single flush operation
+        
+        Args:
+            db: Database session
+            records: List of dicts, each containing:
+                - 'base_fields': template_id, template_name, recipient, status, error_message
+                - 'channel_fields': rendered_content, rendered_subject (email), external_message_id
+            channel_type: Email or SMS
+        
+        Example:
+            records = [
+                {
+                    'base_fields': {'template_id': uuid, 'template_name': 'welcome', ...},
+                    'channel_fields': {'rendered_content': 'Hello!', ...}
+                },
+                ...
+            ]
+        """
+        if not records:
+            logger.debug("bulk_insert_with_channel_data called with empty records list")
+            return
+        
+        try:
+            timestamp = get_utc_timestamp()
+            base_records = []
+            specific_records = []
+            
+            for record in records:
+                # Generate IDs
+                history_id = uuid4()
+                specific_id = uuid4()
+                
+                # Prepare base history record
+                base_history = MessageHistory(
+                    id=history_id,
+                    template_id=record['base_fields']['template_id'],
+                    template_name=record['base_fields']['template_name'],
+                    recipient=record['base_fields']['recipient'],
+                    channel_type=channel_type.value,
+                    status=record['base_fields']['status'].value if isinstance(record['base_fields']['status'], MessageStatus) else record['base_fields']['status'],
+                    error_message=record['base_fields'].get('error_message'),
+                    creation_date=timestamp,
+                    update_date=timestamp
+                )
+                base_records.append(base_history)
+                
+                # Prepare channel-specific record
+                if channel_type == ChannelType.EMAIL:
+                    specific_history = EmailMessageHistory(
+                        id=specific_id,
+                        message_history_id=history_id,
+                        rendered_content=record['channel_fields']['rendered_content'],
+                        rendered_subject=record['channel_fields']['rendered_subject'],
+                        external_message_id=record['channel_fields'].get('external_message_id')
+                    )
+                else:  # SMS
+                    specific_history = SMSMessageHistory(
+                        id=specific_id,
+                        message_history_id=history_id,
+                        rendered_content=record['channel_fields']['rendered_content'],
+                        external_message_id=record['channel_fields'].get('external_message_id')
+                    )
+                specific_records.append(specific_history)
+            
+            # Bulk insert all records
+            db.add_all(base_records + specific_records)
+            await db.flush()
+            
+            logger.info(f"Bulk inserted {len(records)} MessageHistory records (CTI) for channel={channel_type.value}")
+            
+        except Exception as e:
+            logger.error(f"Error bulk inserting MessageHistory: {e}")
+            raise

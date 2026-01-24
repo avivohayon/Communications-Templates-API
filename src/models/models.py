@@ -117,6 +117,20 @@ class MessageHistory(BaseModel):
     
     # Relationship
     template = relationship("Template", backref="message_history")
+    
+    # CTI Relationships - One-to-one with channel-specific tables
+    email_detail = relationship(
+        "EmailMessageHistory",
+        uselist=False,
+        backref="message_history_base",
+        foreign_keys="EmailMessageHistory.message_history_id"
+    )
+    sms_detail = relationship(
+        "SMSMessageHistory",
+        uselist=False,
+        backref="message_history_base",
+        foreign_keys="SMSMessageHistory.message_history_id"
+    )
 
 
 class EmailMessageHistory(Base):
@@ -138,9 +152,6 @@ class EmailMessageHistory(Base):
     rendered_content = Column(Text, nullable=False)
     rendered_subject = Column(String(500), nullable=False)
     external_message_id = Column(String(255), nullable=True)  # SendGrid message ID
-    
-    # Relationship
-    message_history = relationship("MessageHistory", backref="email_detail", foreign_keys=[message_history_id])
 
 
 class SMSMessageHistory(Base):
@@ -161,9 +172,6 @@ class SMSMessageHistory(Base):
     )
     rendered_content = Column(Text, nullable=False)
     external_message_id = Column(String(255), nullable=True)  # Twilio SID
-    
-    # Relationship
-    message_history = relationship("MessageHistory", backref="sms_detail", foreign_keys=[message_history_id])
 
 
 # ============================================================
