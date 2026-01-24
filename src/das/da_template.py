@@ -1,7 +1,7 @@
 """
 Template Data Access Layer with Class Table Inheritance (CTI) support.
 
-This DA does NOT inherit from BaseDA because CTI requires custom logic:
+This DA INHERITS from BaseDA but overrides CTI-specific operations:
 - Templates are split across multiple tables (templates + email_templates/sms_templates)
 - Need to handle JOIN operations
 - Need to insert into TWO tables in a transaction
@@ -17,20 +17,34 @@ from sqlalchemy.orm import selectinload
 
 from src.models.models import Template, EmailTemplate, SMSTemplate
 from src.models.enums import ChannelType
-from src.das.base_da import get_utc_timestamp
+from src.das.base_da import BaseDA, get_utc_timestamp
 
 logger = logging.getLogger(__name__)
 
 
-class TemplateDA:
+class TemplateDA(BaseDA):
     """
     Data Access Layer for Template entities with CTI support.
+    
+    INHERITS from BaseDA and overrides CTI-specific methods.
     
     CTI Design:
     - Base template metadata in 'templates' table
     - Channel-specific data in 'email_templates' or 'sms_templates' tables
     - All operations require handling both tables
+    
+    Inheritance:
+    - OVERRIDES: insert(), get_by_id(), get_all(), update()
+    - CAN USE BASE: delete() (soft delete on base table only)
+    - NEW METHODS: get_by_name(), get_by_id_or_name()
     """
+    
+    def __init__(self):
+        """Initialize TemplateDA with Template model and CTI-specific models."""
+        super().__init__(Template)  # Call parent with base model
+        self.email_template_model = EmailTemplate
+        self.sms_template_model = SMSTemplate
+        logger.debug("Initialized TemplateDA with CTI support")
     
     async def insert(
         self,

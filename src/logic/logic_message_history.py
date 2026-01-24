@@ -1,7 +1,7 @@
 """
 Message History Logic Layer with CTI and polymorphic schema conversion.
 
-This logic layer handles conversion between CTI models and polymorphic Pydantic schemas.
+This logic layer INHERITS from BaseLogic but overrides for CTI handling.
 Read-only operations (no creation/update via API).
 """
 import logging
@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.das.da_message_history import MessageHistoryDA
+from src.logic.base_logic import BaseLogic
 from src.models.models import MessageHistory, EmailMessageHistory, SMSMessageHistory
 from src.models.enums import ChannelType, MessageStatus
 from src.schemas.schema_message_history import (
@@ -22,20 +23,34 @@ from src.schemas.schema_message_history import (
 logger = logging.getLogger(__name__)
 
 
-class MessageHistoryLogic:
+class MessageHistoryLogic(BaseLogic[
+    None,  # No create schema (read-only)
+    Union[EmailMessageHistoryOut, SMSMessageHistoryOut],
+    None   # No update schema (read-only)
+]):
     """
     Business Logic for MessageHistory entities with CTI support.
+    
+    INHERITS from BaseLogic but overrides for CTI handling.
+    READ-ONLY: No create/update/delete via API.
     
     Responsibilities:
     - Convert CTI model tuples → polymorphic Pydantic schemas
     - Handle filtering and queries
     - Determine correct schema type based on channel_type
+    
+    Inheritance:
+    - OVERRIDES: get_by_id() (returns polymorphic schema)
+    - NEW METHOD: get_by_filters()
+    - NOT IMPLEMENTED: create, update, delete (read-only)
     """
     
     def __init__(self):
         """Initialize MessageHistoryLogic with MessageHistoryDA."""
+        # Cannot call super().__init__() because we need MessageHistoryDA (CTI-aware)
         self.da: MessageHistoryDA = MessageHistoryDA()
-        logger.debug("Initialized MessageHistoryLogic")
+        self.entity_name = "MessageHistory"
+        logger.debug("Initialized MessageHistoryLogic with CTI support (read-only)")
     
     def _model_to_schema(
         self,

@@ -1,7 +1,7 @@
 """
 Message History Data Access Layer with Class Table Inheritance (CTI) support.
 
-This DA follows the same CTI pattern as da_template.py:
+This DA INHERITS from BaseDA but overrides/extends for CTI:
 - MessageHistory is split across multiple tables (message_history + email/sms_message_history)
 - Need to handle JOIN operations
 - Need to insert into TWO tables in a transaction
@@ -17,20 +17,35 @@ from sqlalchemy.orm import selectinload
 
 from src.models.models import MessageHistory, EmailMessageHistory, SMSMessageHistory
 from src.models.enums import ChannelType, MessageStatus
-from src.das.base_da import get_utc_timestamp
+from src.das.base_da import BaseDA, get_utc_timestamp
 
 logger = logging.getLogger(__name__)
 
 
-class MessageHistoryDA:
+class MessageHistoryDA(BaseDA):
     """
     Data Access Layer for MessageHistory entities with CTI support.
+    
+    INHERITS from BaseDA and adds CTI-specific methods.
     
     CTI Design:
     - Base message metadata in 'message_history' table
     - Channel-specific data in 'email_message_history' or 'sms_message_history' tables
     - All operations require handling both tables
+    
+    Inheritance:
+    - OVERRIDES: get_by_id()
+    - NEW METHOD: insert_with_channel_data() (doesn't override base insert)
+    - NEW METHOD: get_by_filters()
+    - CAN USE BASE: insert, get_all, update, delete (if needed in future)
     """
+    
+    def __init__(self):
+        """Initialize MessageHistoryDA with MessageHistory model and CTI-specific models."""
+        super().__init__(MessageHistory)  # Call parent with base model
+        self.email_history_model = EmailMessageHistory
+        self.sms_history_model = SMSMessageHistory
+        logger.debug("Initialized MessageHistoryDA with CTI support")
     
     async def insert_with_channel_data(
         self,

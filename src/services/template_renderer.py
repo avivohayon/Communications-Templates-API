@@ -9,7 +9,7 @@ Responsibilities:
 import logging
 from typing import Dict, Any
 
-from jinja2 import Environment, Template, TemplateSyntaxError, UndefinedError
+from jinja2 import Environment, Template, TemplateSyntaxError, UndefinedError, StrictUndefined
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +50,15 @@ class TemplateRenderer:
         - autoescape=False: Don't auto-escape HTML (we handle plain text and HTML explicitly)
         - trim_blocks=True: Remove first newline after block
         - lstrip_blocks=True: Strip leading whitespace from blocks
+        - undefined=StrictUndefined: Raise error on undefined variables (prevents silent failures)
         """
         self.env = Environment(
             autoescape=False,  # No auto-escaping (manual control)
             trim_blocks=True,
-            lstrip_blocks=True
+            lstrip_blocks=True,
+            undefined=StrictUndefined  # CRITICAL: Throw errors on missing variables
         )
-        logger.debug("TemplateRenderer initialized with Jinja2")
+        logger.debug("TemplateRenderer initialized with Jinja2 (StrictUndefined mode)")
     
     def validate_syntax(self, content: str) -> tuple[bool, str | None]:
         """
@@ -81,7 +83,7 @@ class TemplateRenderer:
         """
         try:
             # Try to parse the template
-            self.env.from_string(content)
+            self.env.from_string(source=content)
             logger.debug("Template syntax validation: PASSED")
             return True, None
             
@@ -120,7 +122,7 @@ class TemplateRenderer:
         """
         try:
             # Create template from string
-            template = self.env.from_string(content)
+            template = self.env.from_string(source=content)
             
             # Render with data
             rendered = template.render(**data)
@@ -167,7 +169,7 @@ class TemplateRenderer:
             (False, "Missing required variable: 'name'...")
         """
         try:
-            rendered = self.render(content, data)
+            rendered = self.render(content=content, data=data)
             return True, rendered
         except Exception as e:
             return False, str(e)

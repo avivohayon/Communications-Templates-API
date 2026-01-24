@@ -1,7 +1,7 @@
 """
 Template Logic Layer with CTI and Jinja2 validation.
 
-This logic layer does NOT inherit from BaseLogic because CTI requires custom handling:
+This logic layer INHERITS from BaseLogic but overrides CTI-specific operations:
 - Must work with TWO models (base + specific)
 - Must determine correct schema type based on channel_type
 - Must validate Jinja2 syntax before saving
@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.das.da_template import TemplateDA
+from src.logic.base_logic import BaseLogic
 from src.models.enums import ChannelType
 from src.schemas.schema_template import (
     EmailTemplateIn, SMSTemplateIn,
@@ -25,21 +26,35 @@ from src.services.template_renderer import template_renderer
 logger = logging.getLogger(__name__)
 
 
-class TemplateLogic:
+class TemplateLogic(BaseLogic[
+    Union[EmailTemplateIn, SMSTemplateIn],
+    Union[EmailTemplateOut, SMSTemplateOut],
+    Union[EmailTemplateUpdate, SMSTemplateUpdate]
+]):
     """
     Business Logic for Template entities with CTI support.
+    
+    INHERITS from BaseLogic but overrides for validation and CTI handling.
     
     Responsibilities:
     - Validate Jinja2 template syntax before saving
     - Convert between schemas and DA layer dicts
     - Handle CTI model pairs → correct schema type
     - Business rules (name uniqueness, etc.)
+    
+    Inheritance:
+    - OVERRIDES: create(), get_by_id(), update()
+    - CAN USE BASE: delete()
+    - NEW METHODS: get_by_name(), get_by_id_or_name(), preview()
     """
     
     def __init__(self):
         """Initialize TemplateLogic with TemplateDA."""
+        # Cannot call super().__init__() because we need TemplateDA (CTI-aware),
+        # not generic BaseDA. We initialize manually.
         self.da: TemplateDA = TemplateDA()  # Explicit type hint for IDE
-        logger.debug("Initialized TemplateLogic")
+        self.entity_name = "Template"
+        logger.debug("Initialized TemplateLogic with CTI support")
     
     async def create(
         self,
