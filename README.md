@@ -6,17 +6,22 @@ A production-ready FastAPI-based RESTful API for managing message templates and 
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Quick Start](#quick-start)
-- [API Documentation](#api-documentation)
-- [Database Schema](#database-schema)
-- [Testing](#testing)
-- [Configuration](#configuration)
-- [Project Structure](#project-structure)
-- [Design Decisions](#design-decisions)
-- [Technology Stack](#technology-stack)
+- [Overview](#🎯-overview)
+- [Features](#✨-features)
+- [Architecture](#🏗️-architecture)
+- [Quick Start](#🚀-quick-start)
+- [Frontend UI](#🎨-frontend-ui)
+- [API Documentation](#📚-api-documentation)
+- [Database Schema](#🗄️-database-schema)
+- [Testing](#🧪-testing)
+- [Configuration](#📖-configuration)
+- [Project Structure](#📁-project-structure)
+- [Design Decisions](#💡-design-decisions)
+- [Technology Stack](#🛠️-technology-stack)
+- [Performance Optimizations](#📊-performance-optimizations)
+- [Security Considerations](#🔒-security-considerations)
+- [Observability](#📝-observability)
+- [Known Limitations & Future Enhancements](#🚧-known-limitations--future-enhancements)
 
 ---
 
