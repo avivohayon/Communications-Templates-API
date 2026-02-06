@@ -1,4 +1,4 @@
-# Communications API - Home Assignment
+# Communications API 
 
 A production-ready FastAPI-based RESTful API for managing message templates and sending messages via Email (SendGrid) and SMS (Twilio) with batch optimization, message history tracking, and template preview capabilities.
 
